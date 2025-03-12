@@ -48,36 +48,45 @@ unimeta <- read.csv("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Univa
 measureCharacteristicsData<-read_xlsx("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Study Measure ES Data/MeasureCharacteristics.xlsx")
 studyCharacteristicsData <- read_xlsx("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Study Measure ES Data/StudyCharacteristics.xlsx")
 
-# Identify Study 1 (CBT-only) study IDs
-cbt_study_ids <- unimeta %>%
+# Extract the CBT study IDs from the unimeta.csv
+cbtStudyIDs <- unimeta %>%
   filter(IPT == 0) %>%  # Select only CBT trials (Study 1)
   pull(studyid) %>%  # Extract study IDs
   unique()  # Keep unique study IDs
 
-# Filter ESdata.csv for CBT trials from Study 1
-cbt_mediation_es <- ESdata %>%
+# Extract the relevant effect size data of CBT studies from ESdata.csv
+# - Mediation paths:
+#   - No time-point CBT (0) → Post-treatment Negative Cognition (3)
+#   - Post-treatment Negative Cognition (3) → Post-treatment Depression (3)
+#   - No time-point CBT (0) → Post-treatments Depression (3)
+ESDataCBTStudies <- ESdata %>%
   filter(
-    studyid %in% cbt_study_ids &
+    studyid %in% cbtStudyIDs &
       (
-        (var1type == "1" & var2type == "MA") |    # Path a: CBT Treatment (1) → Negative Cognition (MA)
-          (var1type == "MA" & var2type == "O") |  # Path b: Negative Cognition (MA) → Depression Severity (O)
-          (var1type == "1" & var2type == "O")     # Path c': CBT Treatment (1) → Depression Severity
+        (var1type == "1" & var2type == "MA" & Var1time == 0 & Var2time == 3) |    # Path a: CBT Treatment (1) → Negative Cognition (MA)
+          (var1type == "MA" & var2type == "O" & Var1time == 3 & Var2time == 3) |  # Path b: Negative Cognition (MA) → Depression Severity (O)
+          (var1type == "1" & var2type == "O" & Var1time == 0 & Var2time == 3)     # Path c': CBT Treatment (1) → Depression Severity
       )
   ) %>%
   select(studyid, var1type, Var1time, var2type, Var2time, # Include only parameters required to compute SMDs
          mean_t, SD_t, n_t, mean_c, SD_c, n_c, r)
 
 
-# Filter the studies where mediation path is chronologically preserved (i.e, include only postreatment re) 
-# - Mediation paths:
-#   - No time-point CBT (X) → Post-treatment Negative Cognition (M)
-#   - Post-treatment Negative Cognition (M) → Post-treatment Depression (Y)
-#   - No time-point CBT (X) → Post-treatments Depression (Y)
-cbt_mediation_es_filtered <- cbt_mediation_es %>%
-  filter(
-    (var1type == "1" & var2type == "MA" & Var1time == 0 & Var2time == 3) |    # Path a
-      (var1type == "MA" & var2type == "O" & Var1time == 3 & Var2time == 3) |  # Path b
-      (var1type == "1" & var2type == "O" & Var1time == 0 & Var2time == 3)     # Path c'
+# Compute Cohen's d and point-biserial correlation (r_pb) for each row
+ESDataCBTStudiesCohensD <- ESDataCBTStudies %>%
+  mutate(
+    Cohen_d = mapply(getCohensD, mean_t, SD_t, n_t, mean_c, SD_c, n_c),  
+    r_pb = mapply(getPointBiserialCorrelation, Cohen_d, n_t + n_c)  #
   )
+
+# Compute Hedges' g and point-biserial correlation (r_pb) for each row
+ESDataCBTStudiesHedgesG <- ESDataCBTStudies %>%
+  mutate(
+    Hedges_g = mapply(getHedgesG, mean_t, SD_t, n_t, mean_c, SD_c, n_c),
+    r_pb = mapply(getPointBiserialCorrelation, Hedges_g, n_t + n_c)  
+  )
+
+# Next: preprocess datasets for WebMASEM
+
 
 
