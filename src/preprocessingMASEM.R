@@ -72,21 +72,86 @@ ESDataCBTStudies <- ESdata %>%
          mean_t, SD_t, n_t, mean_c, SD_c, n_c, r)
 
 
-# Compute Cohen's d and point-biserial correlation (r_pb) for each row
-ESDataCBTStudiesCohensD <- ESDataCBTStudies %>%
+# Compute Cohen's d and Hedges' g and convert them into point-biserial correlation (r_pb)
+CBTStudiesCohensD <- ESDataCBTStudies %>%
   mutate(
     Cohen_d = mapply(getCohensD, mean_t, SD_t, n_t, mean_c, SD_c, n_c),  
-    r_pb = mapply(getPointBiserialCorrelation, Cohen_d, n_t + n_c)  #
+    r_pb = mapply(getPointBiserialCorrelation, Cohen_d, n_t + n_c)  
   )
 
-# Compute Hedges' g and point-biserial correlation (r_pb) for each row
-ESDataCBTStudiesHedgesG <- ESDataCBTStudies %>%
+CBTStudiesHedgesG <- ESDataCBTStudies %>%
   mutate(
     Hedges_g = mapply(getHedgesG, mean_t, SD_t, n_t, mean_c, SD_c, n_c),
     r_pb = mapply(getPointBiserialCorrelation, Hedges_g, n_t + n_c)  
   )
 
-# Next: preprocess datasets for WebMASEM
+
+# If a study includes more than one data per relationship, aggregate the effect sizes or correlation coefficients by averaging
+CBTStudiesCohensD <- CBTStudiesCohensD %>%
+  group_by(studyid, var1type, var2type) %>%
+  summarise(
+    r = ifelse(all(is.na(r)), NA, mean(r, na.rm = TRUE)),  # Keep NA if all are NA
+    Cohen_d = ifelse(all(is.na(Cohen_d)), NA, mean(Cohen_d, na.rm = TRUE)),
+    r_pb = ifelse(all(is.na(r_pb)), NA, mean(r_pb, na.rm = TRUE))
+  ) %>%
+  ungroup()
+
+CBTStudiesHedgesG <- CBTStudiesHedgesG %>%
+  group_by(studyid, var1type, var2type) %>%
+  summarise(
+    r = ifelse(all(is.na(r)), NA, mean(r, na.rm = TRUE)),  # Keep NA if all are NA
+    Hedges_g = ifelse(all(is.na(Hedges_g)), NA, mean(Hedges_g, na.rm = TRUE)),
+    r_pb = ifelse(all(is.na(r_pb)), NA, mean(r_pb, na.rm = TRUE))
+  ) %>%
+  ungroup()
+
+
+# Preprocess the data sets to make them webMASEM-compatible
+
+# Add Y_X, Y_M, and M_X columns
+CBTStudiesCohensD <- CBTStudiesCohensD %>%
+  mutate(
+    Y_X = case_when(var1type == "1" & var2type == "O" ~ ifelse(!is.na(r_pb), r_pb, r), TRUE ~ NA_real_),
+    Y_M = case_when(var1type == "MA" & var2type == "O" ~ ifelse(!is.na(r_pb), r_pb, r), TRUE ~ NA_real_),
+    M_X = case_when(var1type == "1" & var2type == "MA" ~ ifelse(!is.na(r_pb), r_pb, r), TRUE ~ NA_real_)
+  )
+
+CBTStudiesHedgesG <- CBTStudiesHedgesG %>%
+  mutate(
+    Y_X = case_when(var1type == "1" & var2type == "O" ~ ifelse(!is.na(r_pb), r_pb, r), TRUE ~ NA_real_),
+    Y_M = case_when(var1type == "MA" & var2type == "O" ~ ifelse(!is.na(r_pb), r_pb, r), TRUE ~ NA_real_),
+    M_X = case_when(var1type == "1" & var2type == "MA" ~ ifelse(!is.na(r_pb), r_pb, r), TRUE ~ NA_real_)
+  )
+
+# Collapse data so that each studyid has one row with all available variable pairs
+webMASEMCohensD <- CBTStudiesCohensD %>%
+  group_by(studyid) %>%
+  summarise(
+    Y_X = if (all(is.na(Y_X))) NA else mean(Y_X, na.rm = TRUE),  # Keep NA if all values are NA
+    Y_M = if (all(is.na(Y_M))) NA else mean(Y_M, na.rm = TRUE),
+    M_X = if (all(is.na(M_X))) NA else mean(M_X, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+webMASEMHedgesG <- CBTStudiesHedgesG %>%
+  group_by(studyid) %>%
+  summarise(
+    Y_X = if (all(is.na(Y_X))) NA else mean(Y_X, na.rm = TRUE),  # Keep NA if all values are NA
+    Y_M = if (all(is.na(Y_M))) NA else mean(Y_M, na.rm = TRUE),
+    M_X = if (all(is.na(M_X))) NA else mean(M_X, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Change the column name for study IDs to be compatible with webMASEM
+webMASEMCohensD <- webMASEMCohensD %>%
+  rename(Study = studyid)
+
+webMASEMHedgesG <- webMASEMHedgesG %>%
+  rename(Study = studyid)
+
+# Write the data sets into Excel files
+write_xlsx(webMASEMCohensD, "webMASEM_CohensD.xlsx")
+write_xlsx(webMASEMHedgesG, "webMASEM_HedgesG.xlsx")
 
 
 
