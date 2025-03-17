@@ -11,8 +11,6 @@
 # Datasets Used:
 #   - ESdata.csv
 #   - unimeta.CSV
-#   - MeasureCharacteristics.xlsx
-#   - StudyCharacteristics.xlsx
 #
 # Dependencies:
 #   - R version: 4.4.2 (2024-10-31) -- "Pile of Leaves"
@@ -45,8 +43,6 @@ source("~/Desktop/repo/dataAnalysisEffectSizeMASEM/src/effectSizeFunctions.R")
 # Import datasets
 ESdata<-read.csv("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Study Measure ES Data/ESdata.csv")
 unimeta <- read.csv("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Univariate/unimeta.CSV")
-measureCharacteristicsData<-read_xlsx("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Study Measure ES Data/MeasureCharacteristics.xlsx")
-studyCharacteristicsData <- read_xlsx("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Study Measure ES Data/StudyCharacteristics.xlsx")
 
 # Extract the CBT study IDs from the unimeta.csv
 cbtStudyIDs <- unimeta %>%
@@ -85,7 +81,6 @@ CBTStudiesHedgesG <- ESDataCBTStudies %>%
     r_pb = mapply(getPointBiserialCorrelation, Hedges_g, n_t + n_c)  
   )
 
-
 # If a study includes more than one data per relationship, aggregate the effect sizes or correlation coefficients by averaging
 CBTStudiesCohensD <- CBTStudiesCohensD %>%
   group_by(studyid, var1type, var2type) %>%
@@ -123,6 +118,7 @@ CBTStudiesHedgesG <- CBTStudiesHedgesG %>%
     M_X = case_when(var1type == "1" & var2type == "MA" ~ ifelse(!is.na(r_pb), r_pb, r), TRUE ~ NA_real_)
   )
 
+
 # Collapse data so that each studyid has one row with all available variable pairs
 webMASEMCohensD <- CBTStudiesCohensD %>%
   group_by(studyid) %>%
@@ -142,16 +138,6 @@ webMASEMHedgesG <- CBTStudiesHedgesG %>%
   ) %>%
   ungroup()
 
-# Change the column name for study IDs to be compatible with webMASEM
-webMASEMCohensD <- webMASEMCohensD %>%
-  rename(Study = studyid)
-
-webMASEMHedgesG <- webMASEMHedgesG %>%
-  rename(Study = studyid)
-
 # Write the data sets into Excel files
-write_xlsx(webMASEMCohensD, "webMASEM_CohensD.xlsx")
-write_xlsx(webMASEMHedgesG, "webMASEM_HedgesG.xlsx")
-
-
-
+write_xlsx(webMASEMCohensD, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_CohensD.xlsx")
+write_xlsx(webMASEMHedgesG, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_HedgesG.xlsx")
