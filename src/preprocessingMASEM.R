@@ -67,6 +67,16 @@ ESDataCBTStudies <- ESdata %>%
   select(studyid, var1type, Var1time, var2type, Var2time, # Include only parameters required to compute SMDs
          mean_t, SD_t, n_t, mean_c, SD_c, n_c, r)
 
+# TODO For now, lets go with the mean and see if the webMASEM works. Change this after the meeting. 
+
+CBTStudiesSampleSize <- ESDataCBTStudies %>%
+  mutate(N = n_t + n_c) %>%  # Compute N for each row
+  group_by(studyid, var1type, var2type) %>%  # Ensure we average within each variable pair
+  summarise(N = mean(N, na.rm = TRUE), .groups = "drop") %>%  # Compute average per variable pair
+  group_by(studyid) %>%
+  summarise(N = round(mean(N, na.rm = TRUE)), .groups = "drop")  # Compute final average per study
+
+
 
 # Compute Cohen's d and Hedges' g and convert them into point-biserial correlation (r_pb)
 CBTStudiesCohensD <- ESDataCBTStudies %>%
@@ -123,21 +133,33 @@ CBTStudiesHedgesG <- CBTStudiesHedgesG %>%
 webMASEMCohensD <- CBTStudiesCohensD %>%
   group_by(studyid) %>%
   summarise(
+    M_X = if (all(is.na(M_X))) NA else mean(M_X, na.rm = TRUE),
     Y_X = if (all(is.na(Y_X))) NA else mean(Y_X, na.rm = TRUE),  # Keep NA if all values are NA
-    Y_M = if (all(is.na(Y_M))) NA else mean(Y_M, na.rm = TRUE),
-    M_X = if (all(is.na(M_X))) NA else mean(M_X, na.rm = TRUE)
+    Y_M = if (all(is.na(Y_M))) NA else mean(Y_M, na.rm = TRUE)
   ) %>%
   ungroup()
 
 webMASEMHedgesG <- CBTStudiesHedgesG %>%
   group_by(studyid) %>%
   summarise(
+    M_X = if (all(is.na(M_X))) NA else mean(M_X, na.rm = TRUE),
     Y_X = if (all(is.na(Y_X))) NA else mean(Y_X, na.rm = TRUE),  # Keep NA if all values are NA
-    Y_M = if (all(is.na(Y_M))) NA else mean(Y_M, na.rm = TRUE),
-    M_X = if (all(is.na(M_X))) NA else mean(M_X, na.rm = TRUE)
+    Y_M = if (all(is.na(Y_M))) NA else mean(Y_M, na.rm = TRUE)
   ) %>%
   ungroup()
 
+
+# TODO Question: how should we handle the studies that reported different control and treatment group sizes within the same study, but different variable pairs?
+
+webMASEMCohensD <- webMASEMCohensD %>%
+  left_join(CBTStudiesSampleSize, by = "studyid") %>%
+  rename(Study = studyid)
+
+webMASEMHedgesG <- webMASEMHedgesG %>%
+  left_join(CBTStudiesSampleSize, by = "studyid") %>%
+  rename(Study = studyid)
+
+
 # Write the data sets into Excel files
-write_xlsx(webMASEMCohensD, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_CohensD.xlsx")
-write_xlsx(webMASEMHedgesG, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_HedgesG.xlsx")
+write.csv(webMASEMCohensD, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_CohensD.csv")
+write.csv(webMASEMHedgesG, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_HedgesG.csv")
