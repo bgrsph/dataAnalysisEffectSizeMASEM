@@ -67,16 +67,6 @@ ESDataCBTStudies <- ESdata %>%
   select(studyid, var1type, Var1time, var2type, Var2time, # Include only parameters required to compute SMDs
          mean_t, SD_t, n_t, mean_c, SD_c, n_c, r)
 
-# TODO For now, lets go with the mean and see if the webMASEM works. Change this after the meeting. 
-
-CBTStudiesSampleSize <- ESDataCBTStudies %>%
-  mutate(N = n_t + n_c) %>%  # Compute N for each row
-  group_by(studyid, var1type, var2type) %>%  # Ensure we average within each variable pair
-  summarise(N = mean(N, na.rm = TRUE), .groups = "drop") %>%  # Compute average per variable pair
-  group_by(studyid) %>%
-  summarise(N = round(mean(N, na.rm = TRUE)), .groups = "drop")  # Compute final average per study
-
-
 
 # Compute Cohen's d and Hedges' g and convert them into point-biserial correlation (r_pb)
 CBTStudiesCohensD <- ESDataCBTStudies %>%
@@ -149,15 +139,20 @@ webMASEMHedgesG <- CBTStudiesHedgesG %>%
   ungroup()
 
 
-# TODO Question: how should we handle the studies that reported different control and treatment group sizes within the same study, but different variable pairs?
+# Create new data frame with average sample size per study
+CBTStudiesSampleSize <- ESDataCBTStudies %>%
+  filter(!is.na(n_t), !is.na(n_c)) %>%
+  mutate(total_N = n_t + n_c) %>%
+  group_by(studyid) %>%
+  summarise(N = round(mean(total_N))) %>%
+  ungroup()
 
+# Merge the sample size data with the webMASEM data
 webMASEMCohensD <- webMASEMCohensD %>%
-  left_join(CBTStudiesSampleSize, by = "studyid") %>%
-  rename(Study = studyid)
+  left_join(CBTStudiesSampleSize, by = "studyid")
 
 webMASEMHedgesG <- webMASEMHedgesG %>%
-  left_join(CBTStudiesSampleSize, by = "studyid") %>%
-  rename(Study = studyid)
+  left_join(CBTStudiesSampleSize, by = "studyid")
 
 
 # Write the data sets into Excel files

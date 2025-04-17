@@ -117,7 +117,7 @@ getPointBiserialCorrelation <- function(d, N) {
   }
   
   # Compute point-biserial correlation using Aaron et al.'s (1998) formula
-  r_pb <- (d^2) / sqrt(d^2 + 4 * (8/N))
+  r_pb <- (d^2) / sqrt(d^2 + 4 * (8/N)) 
   
   return(r_pb)
 }
