@@ -1,8 +1,8 @@
 ################################################################################
 # Script Name: preprocessingMASEM.R
 # Author: Bugra Sipahioglu
-# Date: 12/03/2025
-# Version: 0.1
+# Date: 21/04/2025
+# Version: 1.0
 # 
 # Description: This script imports effect size data, identifies relevant CBT 
 #              studies, calculates Cohen's d and Hedges' g, converts them to point-biserial correlation coefficients
@@ -41,7 +41,7 @@ library(gt)
 source("~/Desktop/repo/dataAnalysisEffectSizeMASEM/src/effectSizeFunctions.R")
 
 # Import datasets
-ESdata<-read.csv("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Study Measure ES Data/ESdata.csv")
+ESdata <- read.csv("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Study Measure ES Data/ESdata.csv")
 unimeta <- read.csv("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Univariate/unimeta.CSV")
 
 # Extract the CBT study IDs from the unimeta.csv
@@ -65,20 +65,24 @@ ESDataCBTStudies <- ESdata %>%
       )
   ) %>%
   select(studyid, var1type, Var1time, var2type, Var2time, # Include only parameters required to compute SMDs
-         mean_t, SD_t, n_t, mean_c, SD_c, n_c, r)
+         mean_t, SD_t, n_t, mean_c, SD_c, n_c, r, NumOppDir)
 
 
-# Compute Cohen's d and Hedges' g and convert them into point-biserial correlation (r_pb)
+# Compute Cohen's d and Hedges' g and convert them into point-biserial correlation (r_pb). If the measurement is reversed, reverse it. 
 CBTStudiesCohensD <- ESDataCBTStudies %>%
   mutate(
     Cohen_d = mapply(getCohensD, mean_t, SD_t, n_t, mean_c, SD_c, n_c),  
-    r_pb = mapply(getPointBiserialCorrelation, Cohen_d, n_t + n_c)  
+    r_pb = mapply(getPointBiserialCorrelation, Cohen_d, n_t + n_c),
+    r = ifelse(NumOppDir == 1 , -r, r), # If NumOppDir = 1, reverse the sign of r
+    r_pb = ifelse(NumOppDir == 1 , -r_pb, r_pb) # If NumOppDir = 1, reverse the sign of r_pb
   )
 
 CBTStudiesHedgesG <- ESDataCBTStudies %>%
   mutate(
     Hedges_g = mapply(getHedgesG, mean_t, SD_t, n_t, mean_c, SD_c, n_c),
-    r_pb = mapply(getPointBiserialCorrelation, Hedges_g, n_t + n_c)  
+    r_pb = mapply(getPointBiserialCorrelation, Hedges_g, n_t + n_c),
+    r_pb = ifelse(NumOppDir == 1, -r_pb, r_pb), # If NumOppDir = 1, reverse the sign of r_pb
+    r = ifelse(NumOppDir == 1, -r, r) # If NumOppDir = 1, reverse the sign of r
   )
 
 # If a study includes more than one data per relationship, aggregate the effect sizes or correlation coefficients by averaging
@@ -86,7 +90,6 @@ CBTStudiesCohensD <- CBTStudiesCohensD %>%
   group_by(studyid, var1type, var2type) %>%
   summarise(
     r = ifelse(all(is.na(r)), NA, mean(r, na.rm = TRUE)),  # Keep NA if all are NA
-    Cohen_d = ifelse(all(is.na(Cohen_d)), NA, mean(Cohen_d, na.rm = TRUE)),
     r_pb = ifelse(all(is.na(r_pb)), NA, mean(r_pb, na.rm = TRUE))
   ) %>%
   ungroup()
@@ -95,7 +98,6 @@ CBTStudiesHedgesG <- CBTStudiesHedgesG %>%
   group_by(studyid, var1type, var2type) %>%
   summarise(
     r = ifelse(all(is.na(r)), NA, mean(r, na.rm = TRUE)),  # Keep NA if all are NA
-    Hedges_g = ifelse(all(is.na(Hedges_g)), NA, mean(Hedges_g, na.rm = TRUE)),
     r_pb = ifelse(all(is.na(r_pb)), NA, mean(r_pb, na.rm = TRUE))
   ) %>%
   ungroup()
@@ -103,7 +105,7 @@ CBTStudiesHedgesG <- CBTStudiesHedgesG %>%
 
 # Preprocess the data sets to make them webMASEM-compatible
 
-# Add Y_X, Y_M, and M_X columns
+# Add Y_X, Y_M, and M_X columns. If the relationship is between continious variables, the r_pb returns null and "r" is used instead. 
 CBTStudiesCohensD <- CBTStudiesCohensD %>%
   mutate(
     Y_X = case_when(var1type == "1" & var2type == "O" ~ ifelse(!is.na(r_pb), r_pb, r), TRUE ~ NA_real_),
@@ -144,7 +146,7 @@ CBTStudiesSampleSize <- ESDataCBTStudies %>%
   filter(!is.na(n_t), !is.na(n_c)) %>%
   mutate(total_N = n_t + n_c) %>%
   group_by(studyid) %>%
-  summarise(N = round(mean(total_N))) %>%
+  summarise(N = mean(total_N)) %>% # do not round N
   ungroup()
 
 # Merge the sample size data with the webMASEM data
@@ -154,7 +156,13 @@ webMASEMCohensD <- webMASEMCohensD %>%
 webMASEMHedgesG <- webMASEMHedgesG %>%
   left_join(CBTStudiesSampleSize, by = "studyid")
 
-
 # Write the data sets into Excel files
 write.csv(webMASEMCohensD, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_CohensD.csv")
 write.csv(webMASEMHedgesG, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_HedgesG.csv")
+
+
+
+ESdata %>%
+  filter(var1type == "1" | var1type == "MA") %>%
+  count(NumOppDir)
+
