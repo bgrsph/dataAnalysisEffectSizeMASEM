@@ -78,12 +78,18 @@ getCohensD <- function(mean_t, SD_t, n_t, mean_c, SD_c, n_c) {
 getHedgesG <- function(mean_t, SD_t, n_t, mean_c, SD_c, n_c) {
  
   if (any(is.na(c(mean_t, SD_t, n_t, mean_c, SD_c, n_c)))) {  # Check if any required values are missing
-    print("\nInput is missing to calculate Hedges' g. Check the dataset.\n")
+    #print("\nInput is missing to calculate Hedges' g. Check the dataset.\n")
     return(NA)
   }
   
   # Compute Cohen's d using the previously defined function
-  d <- getCohensD(mean_t, SD_t, n_t, mean_c, SD_c, n_c)
+  #d <- getCohensD(mean_t, SD_t, n_t, mean_c, SD_c, n_c)
+  
+  # Compute pooled standard deviation
+  Spooled <- sqrt(((SD_t^2) * (n_t - 1) + (SD_c^2) * (n_c - 1)) / (n_t + n_c - 2))
+  
+  # Compute Cohen's d
+  d <- (mean_t - mean_c) / Spooled
   
   # Compute correction factor for small sample sizes
   correction_factor <- 1 - (3 / (4 * (n_t + n_c) - 9))
@@ -112,12 +118,11 @@ getHedgesG <- function(mean_t, SD_t, n_t, mean_c, SD_c, n_c) {
 getPointBiserialCorrelation <- function(d, N) {
   # Check for valid inputs
   if (is.na(d) || is.na(N) || N <= 0) {
-    print("\nInput is missing to calculate point-biserial correlation. Check the dataset.\n")
+    #print("\nInput is missing to calculate point-biserial correlation. Check the dataset.\n")
     return(NA)
   }
   
   # Compute point-biserial correlation using Aaron et al.'s (1998) formula
-  r_pb <- d / sqrt(d^2 + 4 * (8/N)) 
-  
+  r_pb <- d / (sqrt(d^2 + 4 - (8/N)))
   return(r_pb)
 }

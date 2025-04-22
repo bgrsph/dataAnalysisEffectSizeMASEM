@@ -51,7 +51,7 @@ cbtStudyIDs <- unimeta %>%
   unique()  # Keep unique study IDs
 
 # Extract the relevant effect size data of CBT studies from ESdata.csv
-# - Mediation paths:
+# - Mediation paths (as shown in Table 1): 
 #   - No time-point CBT (0) → Post-treatment Negative Cognition (3)
 #   - Post-treatment Negative Cognition (3) → Post-treatment Depression (3)
 #   - No time-point CBT (0) → Post-treatments Depression (3)
@@ -68,7 +68,12 @@ ESDataCBTStudies <- ESdata %>%
          mean_t, SD_t, n_t, mean_c, SD_c, n_c, r, NumOppDir)
 
 
-# Compute Cohen's d and Hedges' g and convert them into point-biserial correlation (r_pb). If the measurement is reversed, reverse it. 
+# Compute Cohen's d and Hedges' g and convert them into point-biserial correlation (r_pb).
+# If one of the variables is reverse-coded compared to the theoretical expectation, reverse it.
+# - Reversion Rule:
+#   - If NumOppDir == 0, then none of the measurement is reverse coded.     No Reversion needed.
+#   - If NumOppDir == 1, then only one of the measurement is reverse coded. Reversion needed.
+#   - If NumOppDir == 2, then two of the measurements are reverse coded.    No reversion needed.
 CBTStudiesCohensD <- ESDataCBTStudies %>%
   mutate(
     Cohen_d = mapply(getCohensD, mean_t, SD_t, n_t, mean_c, SD_c, n_c),  
@@ -157,9 +162,8 @@ webMASEMHedgesG <- webMASEMHedgesG %>%
   left_join(CBTStudiesSampleSize, by = "studyid")
 
 # Write the data sets into Excel files
-write.csv(webMASEMCohensD, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_CohensD.csv")
-write.csv(webMASEMHedgesG, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_HedgesG.csv")
-
+write.csv(webMASEMCohensD, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_CohensD_Dump.csv")
+write.csv(webMASEMHedgesG, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_HedgesG_Dump.csv")
 
 
 ESdata %>%
