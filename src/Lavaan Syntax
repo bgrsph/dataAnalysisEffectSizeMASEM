@@ -1,0 +1,8 @@
+x ~ 1;
+m ~ 1;
+y ~ 1;
+m ~ beta1*x;
+y ~ beta2*m + b_yx*x;
+x ~ ~ 1*x;
+m ~~ m;
+y ~~ y;

@@ -64,29 +64,29 @@ ESdata1 <- mutate (ESDataCBTStudies,
                    SEga = sqrt( ((n_t + n_c) / (n_t*n_c) ) + ((ga*ga) / (2*(n_t + n_c)) ) ),
                    
                    #9. BUGRA
-                   hedges_g = (1 - (3 / (4 * (n_t + n_c) - 9))) * ((mean_t - mean_c) / (sqrt(((SD_t^2) * (n_t - 1) + (SD_c^2) * (n_c - 1)) / (n_t + n_c - 2)))),
+                   cohens_d = ((mean_t - mean_c) / (sqrt(((SD_t^2) * (n_t - 1) + (SD_c^2) * (n_c - 1)) / (n_t + n_c - 2)))),
                    
                    #10.BUGRA: convert Hedges' g into r using Aaron et al. formula. If needed values are NA, use the reported r (which is the case for continous bivariate relationship M-Y)
-                   rpb_converted = ifelse((is.na(hedges_g)), r, hedges_g / (sqrt(hedges_g^2 + 4 - (8/(n_t + n_c))))),
-              
+                   rpb_converted = ifelse((is.na(cohens_d)), r, cohens_d / (sqrt(cohens_d^2 + 4 - (8/(n_t + n_c))))),
+                   
                    #11. BUGRA
                    rpb_converted_opp = ifelse((NumOppDir==1), -rpb_converted, rpb_converted),
                    
                    #12. BUGRA
-                   hedges_g_opp = ifelse((NumOppDir==1), -hedges_g, hedges_g)
+                   cohens_d_opp = ifelse((NumOppDir==1), -cohens_d, cohens_d)
                    
 )
 
 
 # Collapse multiple measures of the same category at the same timepoint within study/tx-control comparison
 
-# ESdata2 <- ESdata1 %>% 
-#   group_by(studyid, TCid, Var1time, var1type, var1mul, Var2time, var2type, var2mul) %>% 
-#   summarise(rpb_converted_opp=mean(rpb_converted_opp), hedges_g_opp = mean(hedges_g_opp), rgaopp=mean(rgaopp), gaopp=mean(gaopp), SEga=mean(SEga), Vga=mean(Vga), n_r1=mean(n_r1), n_t=mean(n_t), n_c=mean(n_c)) 
-# 
-# ESdata3 <- ESdata2 %>% 
-#   group_by(studyid, TCid, Var1time, var1type, var1mul, Var2time, var2type, var2mul) %>% 
-#   summarise(rpb_converted_opp=mean(rpb_converted_opp), hedges_g_opp = mean(hedges_g_opp), rgaopp=mean(rgaopp), gaopp=mean(gaopp), SEga=mean(SEga), Vga=mean(Vga), n_r1=mean(n_r1), n_t=mean(n_t), n_c=mean(n_c)) 
+ESdata2 <- ESdata1 %>%
+  group_by(studyid, TCid, Var1time, var1type, var1mul, Var2time, var2type, var2mul) %>%
+  summarise(rpb_converted_opp=mean(rpb_converted_opp), cohens_d_opp = mean(cohens_d_opp), rgaopp=mean(rgaopp), gaopp=mean(gaopp), SEga=mean(SEga), Vga=mean(Vga), n_r1=mean(n_r1), n_t=mean(n_t), n_c=mean(n_c))
+
+ESdata3 <- ESdata2 %>%
+  group_by(studyid, TCid, Var1time, var1type, var1mul, Var2time, var2type, var2mul) %>%
+  summarise(rpb_converted_opp=mean(rpb_converted_opp), cohens_d_opp = mean(cohens_d_opp), rgaopp=mean(rgaopp), gaopp=mean(gaopp), SEga=mean(SEga), Vga=mean(Vga), n_r1=mean(n_r1), n_t=mean(n_t), n_c=mean(n_c))
 
 
 #Apply reverse rules for r
@@ -101,37 +101,25 @@ ESdata1 <- mutate (ESDataCBTStudies,
 #If both var group A var1type=O, MA, ML2, or ML29 AND var2type=O, MA, ML2, or ML29
 #If both var group B var1type=MB, MC, MD, ME, 1 AND var2type=MB, MC, MD, ME, 1
 
-ESdata4 <- mutate (ESdata1,
+ESdata4 <- mutate (ESdata3,
                    var1grp = ifelse((var1type=="O"|var1type=="MA"|var1type=="ML2"|var1type=="ML29"), "A", "B"),
                    var2grp = ifelse((var2type=="O"|var2type=="MA"|var2type=="ML2"|var2type=="ML29"), "A", "B"),
                    rga = ifelse((var1grp==var2grp), rgaopp, rgaopp*-1),
                    ga = ifelse((var1grp==var2grp), gaopp, gaopp*-1),
                    rpb_converted = ifelse((var1grp==var2grp), rpb_converted_opp, rpb_converted_opp*-1),
-                   hedges_g = ifelse((var1grp==var2grp), hedges_g_opp, hedges_g_opp*-1)
+                   cohens_d = ifelse((var1grp==var2grp), cohens_d_opp, cohens_d_opp*-1)
 ) 
 
 
 
 
 #Use to create data files for univariate meta-analysis and MASEM.
-webMASEM <- ESdata4 %>%
+webMASEMCohensD <- ESdata4 %>%
   mutate(
     M_X = ifelse(var1type == "1" & var2type == "MA", rpb_converted, NA),
     Y_M = ifelse(var1type == "MA" & var2type == "O", rpb_converted, NA),
     Y_X = ifelse(var1type == "1" & var2type == "O", rpb_converted, NA)
-  ) %>%
-  group_by(studyid) %>%
-  summarise(
-    M_X = if (all(is.na(M_X))) NA else mean(M_X, na.rm = TRUE),
-    Y_X = if (all(is.na(Y_X))) NA else mean(Y_X, na.rm = TRUE),
-    Y_M = if (all(is.na(Y_M))) NA else mean(Y_M, na.rm = TRUE),
-    N = mean(n_t + n_c, na.rm = TRUE)
-  ) %>%
-  ungroup()
+  )
 
 
-write.csv(webMASEM, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM.csv")
-
-cat("Final row counts — ESdata1:", nrow(ESdata1), 
-    "| ESdata4 (after reversal):", nrow(ESdata4), 
-    "| webMASEM:", nrow(webMASEM), "\n")
+write.csv(webMASEMCohensD, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEMCohensD.csv")

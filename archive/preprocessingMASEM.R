@@ -255,10 +255,10 @@ CBTStudiesSampleSize <- ESDataCBTStudies %>%
 webMASEMCohensD <- webMASEMCohensD %>%
   left_join(CBTStudiesSampleSize, by = "studyid")
 
-webMASEMHedgesG <- webMASEMHedgesG %>%
+webMASEMHedgesG2 <- webMASEMHedgesG %>%
   left_join(CBTStudiesSampleSize, by = "studyid")
 
 
 # Write the data sets into Excel files
 write.csv(webMASEMCohensD, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_CohensD.csv")
-write.csv(webMASEMHedgesG, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_HedgesG.csv")
+write.csv(webMASEMHedgesG2, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEM_HedgesG.csv")
