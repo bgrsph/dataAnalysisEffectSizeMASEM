@@ -1,10 +1,48 @@
+################################################################################
+# Script Name: ESComputationCohensD.R
+# Author: Bugra Sipahioglu
+# Date: 30/04/2025
+# Version: 1.0
+# 
+# Description: This script imports raw effect size data and study-level metadata,
+#              filters for CBT studies, computes Cohen's d,
+#              adjusts for directionality, aggregates estimates, and prepares
+#              a WebMASEM-compatible dataset containing point-biserial correlations.
+#
+# Datasets Used:
+#   - ESdata.csv         : Raw effect size-level data
+#   - unimeta.csv        : Study-level metadata for identifying CBT interventions
+#
+# Dependencies:
+#   - R version: 4.4.2 (2024-10-31) -- "Pile of Leaves"
+#   - Required Libraries: dplyr
+#
+# Outputs:
+#   - output/webMASEMCohensD.csv : Preprocessed dataset with one row per study, 
+#                                  ready for WebMASEM input
+#
+# Usage:
+#   - Make sure that `ESdata.csv` and `unimeta.csv` are present in the working directory.
+#   - Place this script inside the root of the project folder (e.g., dataAnalysis_MASEM_Bugra_Sipahioglu).
+#   - Run the script from RStudio or source("ESComputationCohensD.R").
+#
+# Notes:
+#   - `file.choose()` is used for interactive data selection. For reproducibility,
+#     consider replacing with a relative path or using here::here().
+#   - Cohen's d is reversed when effect direction requires it.
+#
+# Contact:
+#   - Email: b.sipahioglu@umail.leidenuniv.nl
+#   - GitHub: https://github.com/bgrsph
+################################################################################
+
+# 0- Import necessary libraries
 library(dplyr)
-source("~/Desktop/repo/dataAnalysisEffectSizeMASEM/src/effectSizeFunctions.R")
 
-# 1- Import datasets
-ESdata <- read.csv("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Study Measure ES Data/ESdata.csv")
-unimeta <- read.csv("~/Desktop/repo/dataAnalysisEffectSizeMASEM/data/Files/Univariate/unimeta.CSV")
-
+# 1- Import datasets 
+ESdata <- read.csv(file.choose()) # Select ESdata.csv from local file directory or paste the file path into read.csv()
+unimeta<- read.csv(file.choose()) # Select unimeta.csv from local file directory or paste the file path into read.csv()
+ 
 # 2- Extract the CBT study IDs from the unimeta.csv (i.e., IPT column = 0)
 cbtStudyIDs <- unimeta %>%
   filter(IPT == 0) %>%  # Select only CBT trials (Study 1)
@@ -25,19 +63,19 @@ ESDataCBTStudies <- ESdata %>%
           (var1type == "1" & var2type == "O" & Var1time == 0 & Var2time == 3)     # Path c': CBT Treatment (1) → Depression Severity
       )
   ) %>%
-  select(studyid, var1type, Var1time, var2type, Var2time, mean_t, SD_t, n_t, mean_c, SD_c, n_c, r, NumOppDir,n_r, TCid, var1mul, var2mul) # Only include parameters required to compute Cohen's d & Hedges' g
+  select(studyid, var1type, Var1time, var2type, Var2time, mean_t, SD_t, n_t, mean_c, SD_c, n_c, r, NumOppDir,n_r, TCid, var1mul, var2mul) # Only include parameters required to compute Cohen's d
 
 # 4- Compute Hedges g & reverse it's sign if the relationship has 1 variable that is in the opposite direction, else same direction. 
 ESDataCohensD <- mutate (ESDataCBTStudies,
                          
-                         #Compute Cohen's d
-                         cohens_d = ((mean_t - mean_c) / (sqrt(((SD_t^2) * (n_t - 1) + (SD_c^2) * (n_c - 1)) / (n_t + n_c - 2)))),
+  #Compute Cohen's d
+  cohens_d = ((mean_t - mean_c) / (sqrt(((SD_t^2) * (n_t - 1) + (SD_c^2) * (n_c - 1)) / (n_t + n_c - 2)))),
                          
-                         #Reverse score hedges_g that are comprised of 1 variable that is in the opposite direction, otherwise same direction
-                         cohens_d_opp = ifelse((NumOppDir==1), -cohens_d, cohens_d),
+  #Reverse score hedges_g that are comprised of 1 variable that is in the opposite direction, otherwise same direction
+  cohens_d_opp = ifelse((NumOppDir==1), -cohens_d, cohens_d),
                          
-                         #Reverse score r that is comprised of 1 variable that is in the opposite direction, otherwise same direction
-                         r = ifelse((NumOppDir==1), -r, r)
+  #Reverse score r that is comprised of 1 variable that is in the opposite direction, otherwise same direction
+  r = ifelse((NumOppDir==1), -r, r)
 )
 
 
@@ -58,25 +96,25 @@ ESDataAggregated <- ESDataCohensDSignsReversed %>%
   group_by(studyid, var1type, var2type) %>%
   summarise(
     cohens_d_avg = mean(cohens_d, na.rm = TRUE), # Average Cohen's d (for relationships that may appear more than once per study)
-    r_avg = mean(r, na.rm = TRUE),               # Average raw r (fallback when Hedges' g is missing)
-    n_total_avg = mean(n_t + n_c, na.rm = TRUE)  # Average total sample size (used to fill in missing sample sizes later)
+    r_avg = mean(r, na.rm = TRUE),               # Average r (fallback when Hedges' g is missing, only happens in continuous bivariate pairs)
+    n_total_avg = mean(n_t + n_c, na.rm = TRUE)  # Average total sample size (for same relationships with different sample sizes)
   ) %>%
   ungroup() %>%
-  # Step: Derive rpb from cohens_d_avg when available; otherwise fallback to r_avg
   mutate(
-    # Compute rpb from Cohen's d when it's available (Aaron et al.)
-    rpb = ifelse(!is.na(cohens_d_avg), (cohens_d_avg / sqrt(cohens_d_avg^2 + 4 - (8 / n_total_avg))), r_avg) # if Hedges'g not reported, fallback to reported r (which is the case for continious relationship of M <--> Y)
-  )  
+    # Compute rpb from Cohen's d via Aaron et al. (1998). If Cohen's d not reported, fallback to reported r (which is the case for continuous relationship of M <--> Y)
+    rpb = ifelse(!is.na(cohens_d_avg), (cohens_d_avg / sqrt(cohens_d_avg^2 + 4 - (8 / n_total_avg))), r_avg)
+    )  
 
 # 6- Compute webMASEM-compatible dataset with one row per study
 webMASEMCohensD <- ESDataAggregated %>%
   mutate(
-    # Recode effect paths
-    M_X = ifelse(var1type == "1"  & var2type == "MA", rpb, NA),  # CBT → Neg. Cognition
-    Y_X = ifelse(var1type == "1"  & var2type == "O",  rpb, NA),   # CBT → Depression
-    Y_M = ifelse(var1type == "MA" & var2type == "O",  rpb, NA)  # Neg. Cognition → Depression
+    # Recode paths
+    M_X = ifelse(var1type == "1"  & var2type == "MA", rpb, NA), # CBT → Negative Cognition
+    Y_X = ifelse(var1type == "1"  & var2type == "O",  rpb, NA), # CBT → Depression
+    Y_M = ifelse(var1type == "MA" & var2type == "O",  rpb, NA)  # Negative Cognition → Depression
   ) %>%
-  # Now group by studyid and compute average per path. Here, taking the mean does not takes the mean, it just collapses all the aggregated data into one row. 
+  
+  # Here, taking the mean does not take the mean, it just collapses all the aggregated data into one row.
   group_by(studyid) %>%
   summarise(
     M_X = if (all(is.na(M_X))) NA else mean(M_X, na.rm = TRUE),
@@ -86,6 +124,8 @@ webMASEMCohensD <- ESDataAggregated %>%
   ) %>%
   ungroup()
 
-write.csv(webMASEMCohensD, "~/Desktop/repo/dataAnalysisEffectSizeMASEM/output/webMASEMCohensD.csv")
+# Write file into local directory within output folder. 
+if (!dir.exists("output")) dir.create("output")
+write.csv(webMASEMCohensD, "output/webMASEMCohensD.csv")
 
 

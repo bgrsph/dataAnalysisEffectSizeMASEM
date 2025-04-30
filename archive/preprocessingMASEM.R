@@ -18,7 +18,7 @@
 #   - Custom Functions: effectSizeFunctions.R
 #
 # Outputs:
-#   - 2 WebMASEM-compatible Excel files that include all the correlation coefficients of the variables of the mediation model
+#   - 1 WebMASEM-compatible Excel files that include all the correlation coefficients of the variables of the mediation model
 #
 # Usage:
 #   - Make sure that all required datasets and the function file are in the correct directory.
