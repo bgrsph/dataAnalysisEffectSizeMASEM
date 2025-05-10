@@ -30,6 +30,7 @@
 #   - `file.choose()` is used for interactive data selection. For reproducibility,
 #     consider replacing with a relative path or using here::here().
 #   - Cohen's d is reversed when effect direction requires it.
+#   - Set the project file the working directory, so that the output folder doesn't created in somewhere else. 
 #
 # Contact:
 #   - Email: b.sipahioglu@umail.leidenuniv.nl

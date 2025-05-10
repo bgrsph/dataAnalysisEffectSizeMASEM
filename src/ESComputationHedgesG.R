@@ -25,6 +25,7 @@
 #   - Make sure that `ESdata.csv` and `unimeta.csv` are present in the working directory.
 #   - Place this script inside the root of the project folder (e.g., dataAnalysis_MASEM_Bugra_Sipahioglu).
 #   - Run the script from RStudio or source("ESComputationHedgesG.R").
+#   - Set the project file the working directory, so that the output folder doesn't created in somewhere else. 
 #
 # Notes:
 #   - `file.choose()` is used for interactive data selection. For reproducibility,
@@ -127,5 +128,5 @@ webMASEMHedgesG <- ESDataAggregated %>%
 
 # Write file into local directory within output folder. 
 if (!dir.exists("output")) dir.create("output")
-write.csv(webMASEMCohensD, "output/webMASEMHedgesG.csv")
+write.csv(webMASEMHedgesG, "output/webMASEMHedgesG.csv")
 
