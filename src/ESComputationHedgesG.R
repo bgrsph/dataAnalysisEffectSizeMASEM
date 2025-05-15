@@ -1,8 +1,8 @@
 ################################################################################
 # Script Name: ESComputationHedgesG.R
 # Author: Bugra Sipahioglu
-# Date: 30/04/2025
-# Version: 1.0
+# Date: 15/05/2025
+# Version: 2.1
 # 
 # Description: This script imports raw effect size data and study-level metadata,
 #              filters for CBT studies, computes Hedges' g,
@@ -30,7 +30,7 @@
 # Notes:
 #   - `file.choose()` is used for interactive data selection. For reproducibility,
 #     consider replacing with a relative path or using here::here().
-#   - Cohen's d is reversed when effect direction requires it.
+#   - Hedges' g is reversed when effect direction requires it.
 #
 # Contact:
 #   - Email: b.sipahioglu@umail.leidenuniv.nl

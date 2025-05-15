@@ -1,8 +1,8 @@
 ################################################################################
 # Script Name: ESComputationCohensD.R
 # Author: Bugra Sipahioglu
-# Date: 30/04/2025
-# Version: 1.0
+# Date: 15/05/2025
+# Version: 2.1
 # 
 # Description: This script imports raw effect size data and study-level metadata,
 #              filters for CBT studies, computes Cohen's d,
@@ -66,13 +66,13 @@ ESDataCBTStudies <- ESdata %>%
   ) %>%
   select(studyid, var1type, Var1time, var2type, Var2time, mean_t, SD_t, n_t, mean_c, SD_c, n_c, r, NumOppDir,n_r, TCid, var1mul, var2mul) # Only include parameters required to compute Cohen's d
 
-# 4- Compute Hedges g & reverse it's sign if the relationship has 1 variable that is in the opposite direction, else same direction. 
+# 4- Compute Cohens d & reverse it's sign if the relationship has 1 variable that is in the opposite direction, else same direction. 
 ESDataCohensD <- mutate (ESDataCBTStudies,
                          
   #Compute Cohen's d
   cohens_d = ((mean_t - mean_c) / (sqrt(((SD_t^2) * (n_t - 1) + (SD_c^2) * (n_c - 1)) / (n_t + n_c - 2)))),
                          
-  #Reverse score hedges_g that are comprised of 1 variable that is in the opposite direction, otherwise same direction
+  #Reverse score cohens d that are comprised of 1 variable that is in the opposite direction, otherwise same direction
   cohens_d_opp = ifelse((NumOppDir==1), -cohens_d, cohens_d),
                          
   #Reverse score r that is comprised of 1 variable that is in the opposite direction, otherwise same direction
@@ -92,12 +92,12 @@ ESDataCohensDSignsReversed <- mutate (ESDataCohensD,
 )
 
 
-# 6- Aggregate sample size and Hedges'g in case same relationship within a study exists with different effect sizes and/or sample sizes
+# 6- Aggregate sample size and Cohen's d in case same relationship within a study exists with different effect sizes and/or sample sizes
 ESDataAggregated <- ESDataCohensDSignsReversed %>%
   group_by(studyid, var1type, var2type) %>%
   summarise(
     cohens_d_avg = mean(cohens_d, na.rm = TRUE), # Average Cohen's d (for relationships that may appear more than once per study)
-    r_avg = mean(r, na.rm = TRUE),               # Average r (fallback when Hedges' g is missing, only happens in continuous bivariate pairs)
+    r_avg = mean(r, na.rm = TRUE),               # Average r (fallback when Cohen's d is missing, only happens in continuous bivariate pairs)
     n_total_avg = mean(n_t + n_c, na.rm = TRUE)  # Average total sample size (for same relationships with different sample sizes)
   ) %>%
   ungroup() %>%
